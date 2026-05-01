@@ -503,7 +503,7 @@ function renderMarkers() {
     } else {
       var thumbs = job.photos.slice(0,4).map(function(u,i){
         var last = i===3 && job.photos.length>4;
-        return '<div class="cccmap-thumb" data-ccmjob="' + job.id + '" data-ccmidx="' + i + '"'>' +
+        return '<div class="cccmap-thumb" data-ccmjob="' + job.id + '" data-ccmidx="' + i + '">' +
           '<img src="' + u + '" loading="lazy" alt=""></div>' +
           (last ? '' : '');
       }).join('');
