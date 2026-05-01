@@ -1,0 +1,629 @@
+
+<!-- CCC Project Map — Connolly Construction Company -->
+<!-- Paste this entire block into a GHL Custom Code element -->
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+#cccmap-root {
+  --cm-deep:   #0d1219;
+  --cm-navy:   #141c2e;
+  --cm-panel:  #192030;
+  --cm-mid:    #1f2a3e;
+  --cm-border: #28364e;
+  --cm-gold:   #c8a84b;
+  --cm-orange: #d4601a;
+  --cm-light:  #edf0f5;
+  --cm-muted:  #7a8799;
+  --cm-white:  #ffffff;
+  font-family: 'Source Sans 3', sans-serif;
+  color: var(--cm-light);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 700px;
+  position: relative;
+  overflow: hidden;
+  background: var(--cm-deep);
+}
+
+/* HEADER */
+#cccmap-header {
+  position: absolute;
+  top:0; left:0; right:0;
+  height: 64px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px;
+  background: rgba(13,18,25,0.97);
+  border-bottom: 2px solid var(--cm-gold);
+  backdrop-filter: blur(14px);
+  box-sizing: border-box;
+}
+#cccmap-logo { flex-shrink:0; }
+#cccmap-hsep { width:1px; height:30px; background:var(--cm-border); flex-shrink:0; }
+#cccmap-pagetag {
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.68rem; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--cm-muted);
+  flex-shrink: 0; display: none;
+}
+@media(min-width:600px){ #cccmap-pagetag { display:block; } }
+
+/* SEARCH */
+#cccmap-srchwrap {
+  flex:1; max-width:380px;
+  position:relative; margin-left:auto;
+}
+#cccmap-srch {
+  width:100%;
+  background: var(--cm-mid);
+  border: 1px solid var(--cm-border);
+  border-radius: 5px;
+  padding: 8px 40px 8px 13px;
+  color: var(--cm-light);
+  font-family: 'Source Sans 3', sans-serif;
+  font-size: 0.83rem; outline: none;
+  transition: border-color .2s;
+  box-sizing: border-box;
+}
+#cccmap-srch::placeholder { color: var(--cm-muted); }
+#cccmap-srch:focus { border-color: var(--cm-gold); }
+#cccmap-srchbtn {
+  position:absolute; right:5px; top:50%; transform:translateY(-50%);
+  background: var(--cm-orange); border:none; border-radius:4px;
+  width:28px; height:26px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:background .2s;
+}
+#cccmap-srchbtn:hover { background:#b84e12; }
+#cccmap-srchbtn svg { width:13px; height:13px; fill:none; stroke:#fff; stroke-width:2.3; stroke-linecap:round; }
+#cccmap-ac {
+  display:none; position:absolute;
+  top:calc(100% + 4px); left:0; right:0;
+  background:var(--cm-panel); border:1px solid var(--cm-border);
+  border-radius:5px; overflow:hidden;
+  z-index:9000; box-shadow:0 10px 28px rgba(0,0,0,.6);
+}
+.cccmap-acr {
+  display:flex; align-items:flex-start; gap:9px;
+  padding:9px 12px; cursor:pointer;
+  border-bottom:1px solid var(--cm-border);
+  transition:background .15s; font-size:.8rem;
+}
+.cccmap-acr:last-child { border-bottom:none; }
+.cccmap-acr:hover { background:var(--cm-mid); }
+.cccmap-acr .cm-pin { color:var(--cm-gold); font-size:.85rem; padding-top:1px; flex-shrink:0; }
+.cccmap-acr .cm-main { color:var(--cm-light); font-weight:600; line-height:1.2; }
+.cccmap-acr .cm-sub { color:var(--cm-muted); font-size:.72rem; }
+
+/* GEO BTN */
+#cccmap-geobtn {
+  flex-shrink:0; background:var(--cm-mid);
+  border:1px solid var(--cm-border);
+  border-radius:5px; width:38px; height:38px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  color:var(--cm-muted); transition:border-color .2s,color .2s;
+}
+#cccmap-geobtn:hover,#cccmap-geobtn.active { border-color:var(--cm-gold); color:var(--cm-gold); }
+#cccmap-geobtn svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; }
+
+/* MAP */
+#cccmap-map {
+  position:absolute; inset:0; top:64px;
+}
+.leaflet-container { background:#111820; }
+.leaflet-control-zoom { border:none !important; margin-bottom:90px !important; }
+.leaflet-control-zoom a {
+  background:#192030 !important; color:#edf0f5 !important;
+  border:1px solid #28364e !important;
+  width:32px !important; height:32px !important;
+  line-height:32px !important; font-size:15px !important;
+}
+.leaflet-control-zoom a:hover { background:#1f2a3e !important; }
+.leaflet-control-attribution { background:rgba(13,18,25,.8) !important; color:#3a4a5a !important; font-size:9px !important; }
+.leaflet-attribution-flag { display:none !important; }
+
+/* PINS */
+.cccmap-pin { cursor:pointer; filter:drop-shadow(0 3px 9px rgba(0,0,0,.65)); transition:transform .18s cubic-bezier(.22,.9,.4,1.2),filter .18s; }
+.cccmap-pin:hover { transform:scale(1.25) translateY(-4px); filter:drop-shadow(0 8px 18px rgba(0,0,0,.75)); }
+.cccmap-pin.empty { opacity:.38; cursor:default; }
+.cccmap-pin.empty:hover { transform:none; }
+.cccmap-userdot { width:13px; height:13px; border-radius:50%; background:#c8a84b; border:3px solid #fff; box-shadow:0 0 0 4px rgba(200,168,75,.3); animation:cm-upulse 2.2s infinite; }
+@keyframes cm-upulse { 0%,100%{box-shadow:0 0 0 4px rgba(200,168,75,.3);} 50%{box-shadow:0 0 0 8px rgba(200,168,75,.08);} }
+.cccmap-srchDot { width:16px; height:16px; border-radius:50%; background:#d4601a; border:3px solid #fff; box-shadow:0 2px 10px rgba(0,0,0,.6); }
+
+/* POPUP */
+.leaflet-popup-content-wrapper,.leaflet-popup-tip-container { background:transparent !important; border:none !important; box-shadow:none !important; padding:0 !important; border-radius:0 !important; }
+.leaflet-popup-close-button { display:none !important; }
+.leaflet-popup { margin-bottom:14px !important; }
+.cccmap-popup { width:300px; background:#192030; border:1px solid #28364e; border-top:3px solid #c8a84b; border-radius:6px; overflow:hidden; box-shadow:0 16px 48px rgba(0,0,0,.8); animation:cm-popin .17s cubic-bezier(.22,.9,.4,1.1); }
+.cccmap-popup.slim { width:225px; border-top-color:#28364e; }
+@keyframes cm-popin { from{opacity:0;transform:translateY(8px) scale(.95);} to{opacity:1;transform:translateY(0) scale(1);} }
+.cccmap-pophead { padding:12px 14px 9px; border-bottom:1px solid #28364e; }
+.cccmap-month { font-size:.62rem; letter-spacing:.12em; text-transform:uppercase; color:#c8a84b; margin-bottom:3px; }
+.cccmap-street { font-family:'Oswald',sans-serif; font-weight:500; font-size:1.05rem; letter-spacing:.04em; color:#fff; line-height:1.2; }
+.cccmap-city { font-size:.7rem; letter-spacing:.09em; text-transform:uppercase; color:#7a8799; margin-top:3px; }
+.cccmap-tags { display:flex; gap:5px; flex-wrap:wrap; margin-top:7px; }
+.cccmap-tag { font-size:.6rem; letter-spacing:.07em; text-transform:uppercase; padding:2px 7px; border-radius:3px; background:#1f2a3e; border:1px solid #28364e; color:#7a8799; }
+.cccmap-thumbstrip { display:flex; gap:6px; align-items:center; padding:10px 12px 6px; }
+.cccmap-thumb { width:52px; height:52px; border-radius:50%; overflow:hidden; background:#1f2a3e; cursor:pointer; flex-shrink:0; border:2px solid #28364e; transition:border-color .2s,transform .2s; }
+.cccmap-thumb:hover { border-color:#c8a84b; transform:scale(1.07); }
+.cccmap-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.cccmap-thumbmore { width:52px; height:52px; border-radius:50%; background:#1f2a3e; border:2px solid #28364e; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; font-family:'Oswald',sans-serif; font-size:.85rem; color:#7a8799; transition:border-color .2s,color .2s; }
+.cccmap-thumbmore:hover { border-color:#c8a84b; color:#c8a84b; }
+.cccmap-cta { display:block; margin:6px 10px 10px; width:calc(100% - 20px); padding:9px; background:#d4601a; border:none; border-radius:4px; color:#fff; font-family:'Oswald',sans-serif; font-weight:500; font-size:.82rem; letter-spacing:.1em; text-transform:uppercase; cursor:pointer; text-align:center; transition:background .2s; }
+.cccmap-cta:hover { background:#b84e12; }
+.cccmap-nophoto { padding:8px 14px 12px; font-size:.72rem; color:#7a8799; font-style:italic; }
+
+/* COUNTER */
+#cccmap-counter {
+  position:absolute; bottom:20px; right:16px; z-index:900;
+  background:#192030; border:1px solid #28364e; border-left:3px solid #c8a84b;
+  border-radius:5px; padding:10px 16px 10px 12px;
+  display:flex; align-items:center; gap:11px;
+  box-shadow:0 6px 24px rgba(0,0,0,.65);
+  animation:cm-slideup .5s .9s both cubic-bezier(.22,.9,.4,1);
+  user-select:none;
+}
+@keyframes cm-slideup { from{opacity:0;transform:translateY(14px);} to{opacity:1;transform:translateY(0);} }
+.cccmap-ctrdot { width:9px; height:9px; border-radius:50%; background:#d4601a; flex-shrink:0; box-shadow:0 0 0 3px rgba(212,96,26,.25); animation:cm-dotpulse 2.5s infinite; }
+@keyframes cm-dotpulse { 0%,100%{box-shadow:0 0 0 3px rgba(212,96,26,.25);} 50%{box-shadow:0 0 0 7px rgba(212,96,26,.07);} }
+.cccmap-ctrnum { font-family:'Oswald',sans-serif; font-weight:700; font-size:1.8rem; letter-spacing:.03em; line-height:1; color:#fff; }
+.cccmap-ctrlbl { font-size:.58rem; letter-spacing:.13em; text-transform:uppercase; color:#7a8799; margin-top:2px; white-space:nowrap; }
+
+/* GALLERY */
+#cccmap-gallery {
+  display:none; position:fixed; inset:0; z-index:2147483647;
+  background:rgba(8,11,18,.97); backdrop-filter:blur(12px);
+  flex-direction:column;
+}
+#cccmap-gallery.open { display:flex; animation:cm-gfade .2s ease; }
+@keyframes cm-gfade { from{opacity:0} to{opacity:1} }
+#cccmap-ghead { display:flex; align-items:center; justify-content:space-between; padding:14px 24px; background:#141c2e; border-bottom:2px solid #c8a84b; flex-shrink:0; }
+
+#cccmap-gmonth { font-size:.62rem; letter-spacing:.12em; text-transform:uppercase; color:#c8a84b; }
+#cccmap-gstreet { font-family:'Oswald',sans-serif; font-weight:600; font-size:1.15rem; letter-spacing:.05em; color:#fff; }
+#cccmap-gcity { font-size:.68rem; letter-spacing:.09em; text-transform:uppercase; color:#7a8799; margin-top:1px; }
+#cccmap-gclose { background:none; border:1px solid #28364e; color:#edf0f5; width:36px; height:36px; border-radius:4px; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; transition:background .2s; }
+#cccmap-gclose:hover { background:#1f2a3e; }
+#cccmap-ghero { flex-shrink:0; width:100%; max-height:38vh; overflow:hidden; position:relative; background:#0d1219; cursor:zoom-in; }
+#cccmap-gheroimg { width:100%; max-height:38vh; object-fit:cover; display:block; transition:transform .4s; }
+#cccmap-ghero:hover #cccmap-gheroimg { transform:scale(1.03); }
+#cccmap-gheronav { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); display:flex; gap:8px; align-items:center; }
+.cccmap-gherobtn { background:rgba(13,18,25,.75); border:1px solid rgba(255,255,255,.2); color:#fff; width:34px; height:34px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:.85rem; transition:background .2s; backdrop-filter:blur(4px); }
+.cccmap-gherobtn:hover { background:rgba(200,168,75,.5); }
+#cccmap-gheroidx { background:rgba(13,18,25,.75); border:1px solid rgba(255,255,255,.15); backdrop-filter:blur(4px); padding:4px 10px; border-radius:12px; font-size:.68rem; letter-spacing:.07em; color:#ccc; }
+#cccmap-gbody { flex:1; overflow-y:auto; padding:16px 20px; }
+#cccmap-ggrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:7px; }
+.cccmap-gcell { aspect-ratio:4/3; border-radius:6px; overflow:hidden; background:#1f2a3e; cursor:zoom-in; }
+.cccmap-gcell img { width:100%; height:100%; object-fit:cover; transition:transform .3s; display:block; }
+.cccmap-gcell:hover img { transform:scale(1.05); }
+.cccmap-gcell.active { outline:2px solid #c8a84b; outline-offset:-2px; }
+
+/* LIGHTBOX */
+#cccmap-lb { display:none; position:fixed; inset:0; z-index:2147483647; background:rgba(0,0,0,.97); align-items:center; justify-content:center; cursor:zoom-out; }
+#cccmap-lb.open { display:flex; }
+#cccmap-lb img { max-width:92vw; max-height:90vh; object-fit:contain; border-radius:4px; }
+#cccmap-lbx { position:absolute; top:16px; right:20px; background:none; border:1px solid #444; color:#fff; width:36px; height:36px; border-radius:4px; cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; }
+
+/* TOAST */
+#cccmap-toast { position:fixed; bottom:88px; left:50%; transform:translateX(-50%) translateY(16px); background:#192030; border:1px solid #28364e; border-left:3px solid #c8a84b; border-radius:5px; padding:8px 18px; font-size:.77rem; color:#edf0f5; z-index:9998; opacity:0; transition:opacity .25s,transform .25s; pointer-events:none; white-space:nowrap; }
+#cccmap-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+@media(max-width:560px){
+  #cccmap-root { height:100svh; }
+  #cccmap-header { padding:0 10px; gap:8px; height:58px; }
+  #cccmap-logo { height:30px; }
+  #cccmap-map { top:58px; }
+  #cccmap-ggrid { grid-template-columns:repeat(2,1fr); gap:5px; }
+  #cccmap-gbody { padding:10px; }
+  #cccmap-counter { right:10px; bottom:14px; }
+}
+</style>
+
+<!-- ROOT WRAPPER -->
+<div id="cccmap-root">
+  <!-- HEADER -->
+  <div id="cccmap-header">
+    <div id="cccmap-logo" style="display:flex;align-items:center;gap:9px;flex-shrink:0;">
+      <div style="background:#c8a84b;border-radius:3px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M13 2 L24 9 L24 22 L2 22 L2 9 Z" stroke="#0d1219" stroke-width="1.5" fill="none"/>
+          <path d="M2 9 L13 2 L24 9" stroke="#0d1219" stroke-width="1.5" fill="none"/>
+          <rect x="9" y="14" width="8" height="8" stroke="#0d1219" stroke-width="1.2" fill="none"/>
+        </svg>
+      </div>
+      <div style="flex-shrink:0;">
+        <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:.95rem;letter-spacing:.08em;color:#fff;text-transform:uppercase;line-height:1.1;">Connolly</div>
+        <div style="font-family:'Oswald',sans-serif;font-weight:400;font-size:.72rem;letter-spacing:.12em;color:#c8a84b;text-transform:uppercase;">Construction Co.</div>
+      </div>
+    </div>
+    <div id="cccmap-hsep"></div>
+    <div id="cccmap-pagetag">Project Map</div>
+    <div id="cccmap-srchwrap">
+      <input id="cccmap-srch" type="text" placeholder="Search your address or neighborhood…" autocomplete="off" spellcheck="false">
+      <button id="cccmap-srchbtn">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+      </button>
+      <div id="cccmap-ac"></div>
+    </div>
+    <button id="cccmap-geobtn" title="Use my location">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22"/><circle cx="12" cy="12" r="8.5" stroke-dasharray="3.5 2"/></svg>
+    </button>
+  </div>
+
+  <!-- MAP -->
+  <div id="cccmap-map"></div>
+
+  <!-- COUNTER -->
+  <div id="cccmap-counter">
+    <div class="cccmap-ctrdot"></div>
+    <div>
+      <div class="cccmap-ctrnum" id="cccmap-ctrnum">…</div>
+      <div class="cccmap-ctrlbl">Customers &amp; Counting</div>
+    </div>
+  </div>
+</div>
+
+<!-- GALLERY (fixed overlay, outside root) -->
+<div id="cccmap-gallery">
+  <div id="cccmap-ghead">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div id="cccmap-glogo" style="display:flex;align-items:center;gap:8px;">
+      <div style="background:#c8a84b;border-radius:3px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="22" height="22" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M13 2 L24 9 L24 22 L2 22 L2 9 Z" stroke="#0d1219" stroke-width="1.5" fill="none"/>
+          <path d="M2 9 L13 2 L24 9" stroke="#0d1219" stroke-width="1.5" fill="none"/>
+          <rect x="9" y="14" width="8" height="8" stroke="#0d1219" stroke-width="1.2" fill="none"/>
+        </svg>
+      </div>
+      <div>
+        <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:.9rem;letter-spacing:.08em;color:#fff;text-transform:uppercase;line-height:1.1;">Connolly</div>
+        <div style="font-family:'Oswald',sans-serif;font-weight:400;font-size:.68rem;letter-spacing:.1em;color:#c8a84b;text-transform:uppercase;">Construction Co.</div>
+      </div>
+    </div>
+      <div>
+        <div id="cccmap-gmonth"></div>
+        <div id="cccmap-gstreet"></div>
+        <div id="cccmap-gcity"></div>
+      </div>
+    </div>
+    <button id="cccmap-gclose" onclick="ccmCloseGallery()">✕</button>
+  </div>
+  <div id="cccmap-ghero" onclick="ccmHeroLb()">
+    <img id="cccmap-gheroimg" src="" alt="">
+    <div id="cccmap-gheronav" onclick="event.stopPropagation()">
+      <button class="cccmap-gherobtn" onclick="ccmHeroNav(-1)">&#8249;</button>
+      <div id="cccmap-gheroidx">1 / 1</div>
+      <button class="cccmap-gherobtn" onclick="ccmHeroNav(1)">&#8250;</button>
+    </div>
+  </div>
+  <div id="cccmap-gbody">
+    <div id="cccmap-ggrid"></div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div id="cccmap-lb" onclick="ccmCloseLb()">
+  <button id="cccmap-lbx" onclick="ccmCloseLb()">✕</button>
+  <img id="cccmap-lbimg" src="" alt="">
+</div>
+
+<!-- TOAST -->
+<div id="cccmap-toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function() {
+// ═══════════════════════════════════════════════════════
+//  PASTE YOUR GOOGLE APPS SCRIPT URL BELOW
+// ═══════════════════════════════════════════════════════
+var DATA_URL = 'https://script.google.com/macros/s/AKfycbxzH-7Dek6_N9WOxaHui7Muy3RNoEs6XhvItgT4KU7d4Kzj4gWpr-Q1w97kQO_OAE4O/exec';
+
+var DEMO_JOBS = [
+  {id:1,street:"Ridgecrest Drive",city:"Lynnwood, WA",type:"Roofing",month:"March 2026",lat:47.8209,lng:-122.3151,photos:["https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800","https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800","https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800","https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800","https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800"]},
+  {id:2,street:"Cedar Park Road",city:"Mountlake Terrace, WA",type:"Roofing + Gutters",month:"February 2026",lat:47.7912,lng:-122.3058,photos:["https://images.unsplash.com/photo-1605146769289-440113cc3d00?w=800","https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800","https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=800"]},
+  {id:3,street:"Maple Valley Highway",city:"Renton, WA",type:"Siding",month:"January 2026",lat:47.4829,lng:-122.1635,photos:["https://images.unsplash.com/photo-1513584684374-8bab748fbf90?w=800","https://images.unsplash.com/photo-1560184897-ae75f418493e?w=800","https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=800"]},
+  {id:4,street:"Westwood Village Drive",city:"Seattle, WA",type:"Roofing",month:"",lat:47.5362,lng:-122.3754,photos:[]},
+  {id:5,street:"Firdale Avenue",city:"Edmonds, WA",type:"Gutters",month:"April 2026",lat:47.8107,lng:-122.3793,photos:["https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?w=800","https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?w=800","https://images.unsplash.com/photo-1600573472592-401b489a3cdc?w=800"]},
+  {id:6,street:"Simonds Road",city:"Kenmore, WA",type:"Roofing + Siding",month:"March 2026",lat:47.7573,lng:-122.2426,photos:["https://images.unsplash.com/photo-1518780664697-55e3ad937233?w=800","https://images.unsplash.com/photo-1592595896616-c37162298647?w=800","https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800"]},
+  {id:7,street:"Lake City Way",city:"Seattle, WA",type:"Roofing",month:"April 2026",lat:47.7199,lng:-122.2870,photos:["https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800","https://images.unsplash.com/photo-1576941089067-2de3c901e126?w=800"]},
+  {id:8,street:"Bothell-Everett Highway",city:"Bothell, WA",type:"Roofing",month:"",lat:47.7601,lng:-122.2054,photos:[]},
+  {id:9,street:"Marine View Drive",city:"Stanwood, WA",type:"Roofing",month:"January 2026",lat:48.2418,lng:-122.3548,photos:["https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800","https://images.unsplash.com/photo-1605146769289-440113cc3d00?w=800"]},
+];
+
+var JOBS = [];
+var ccmMap = null;
+var gJob = null, gIdx = 0;
+var srchMk = null, userMk = null;
+var srchTimer = null;
+
+// ── INIT ──────────────────────────────────────────
+function init() {
+  ccmMap = L.map('cccmap-map', {
+    center: [47.85, -122.25], zoom: 10,
+    zoomControl: true, attributionControl: true
+  });
+  // Primary: Google Satellite (works everywhere including GHL iframes)
+  L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+    attribution: 'Imagery © Google',
+    maxZoom: 21,
+    subdomains: ['mt0','mt1','mt2','mt3'],
+  }).addTo(ccmMap);
+
+  // Labels overlay
+  L.tileLayer('https://mt1.google.com/vt/lyrs=h&x={x}&y={y}&z={z}', {
+    maxZoom: 21,
+    opacity: 0.8,
+    subdomains: ['mt0','mt1','mt2','mt3'],
+  }).addTo(ccmMap);
+
+  loadData();
+  bindSearch();
+  bindGeo();
+  bindPopupClicks();
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { ccmCloseLb(); ccmCloseGallery(); }
+    if (e.key === 'ArrowRight' && gJob) ccmHeroNav(1);
+    if (e.key === 'ArrowLeft'  && gJob) ccmHeroNav(-1);
+  });
+}
+
+// ── DATA LOAD ─────────────────────────────────────
+async function loadData() {
+  if (DATA_URL && DATA_URL !== 'YOUR_GOOGLE_APPS_SCRIPT_URL') {
+    try {
+      // Add cache-busting and proper headers for GHL environment
+      var res = await fetch(DATA_URL + '?t=' + Date.now(), {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-cache',
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var data = await res.json();
+      if (data && Array.isArray(data.jobs)) {
+        JOBS = data.jobs;
+        console.log('Loaded ' + JOBS.length + ' live projects');
+      } else {
+        throw new Error('Invalid data format');
+      }
+    } catch(e) {
+      console.warn('Live feed error:', e.message, '— using demo data');
+      JOBS = DEMO_JOBS;
+    }
+  } else {
+    JOBS = DEMO_JOBS;
+  }
+  renderCounter();
+  renderMarkers();
+}
+
+// ── COUNTER ───────────────────────────────────────
+function renderCounter() {
+  var el = document.getElementById('cccmap-ctrnum');
+  var t = JOBS.length, c = 0;
+  var iv = setInterval(function(){
+    c = Math.min(c+1, t);
+    el.textContent = c.toLocaleString();
+    if (c >= t) clearInterval(iv);
+  }, 55);
+}
+
+// ── PIN SVG ───────────────────────────────────────
+function mkPin(has) {
+  var fill = has ? '#c8a84b' : '#2e3c56';
+  var dot  = has ? '#1a2035' : '#3a4a68';
+  var ring = has ? '#edf0f5' : '#404e6a';
+  return '<svg width="30" height="38" viewBox="0 0 30 38" xmlns="http://www.w3.org/2000/svg">' +
+    '<path d="M15 1.5C8.6 1.5 3.5 6.6 3.5 13c0 9.2 11.5 23.5 11.5 23.5S26.5 22.2 26.5 13C26.5 6.6 21.4 1.5 15 1.5z" fill="' + fill + '" stroke="' + ring + '" stroke-width="1.5"/>' +
+    '<circle cx="15" cy="13" r="5" fill="' + dot + '"/>' +
+    '<circle cx="15" cy="13" r="2.2" fill="' + fill + '"/>' +
+    '</svg>';
+}
+
+// ── MARKERS ───────────────────────────────────────
+function renderMarkers() {
+  var isMob = window.innerWidth < 768 || navigator.maxTouchPoints > 0;
+
+  JOBS.forEach(function(job) {
+    var has = job.photos && job.photos.length > 0;
+    var icon = L.divIcon({
+      html: '<div class="cccmap-pin' + (has ? '' : ' empty') + '">' + mkPin(has) + '</div>',
+      className: '', iconSize:[30,38], iconAnchor:[15,38], popupAnchor:[0,-40]
+    });
+    var mk = L.marker([job.lat, job.lng], {icon: icon}).addTo(ccmMap);
+
+    var html;
+    if (!has) {
+      html = '<div class="cccmap-popup slim">' +
+        '<div class="cccmap-pophead">' +
+        '<div class="cccmap-street">' + esc(job.street) + '</div>' +
+        '<div class="cccmap-city">' + esc(job.city) + '</div>' +
+        '<div class="cccmap-tags"><span class="cccmap-tag">' + esc(job.type) + '</span></div>' +
+        '</div><div class="cccmap-nophoto">📸 Photos coming soon</div></div>';
+    } else {
+      var thumbs = job.photos.slice(0,4).map(function(u,i){
+        var last = i===3 && job.photos.length>4;
+        return '<div class="cccmap-thumb" data-ccmjob="' + job.id + '" data-ccmidx="' + i + '"'>' +
+          '<img src="' + u + '" loading="lazy" alt=""></div>' +
+          (last ? '' : '');
+      }).join('');
+      var extra = job.photos.length > 4
+        ? '<div class="cccmap-thumbmore" data-ccmjob="' + job.id + '" data-ccmidx="4">+' + (job.photos.length-4) + '</div>' : '';
+      html = '<div class="cccmap-popup">' +
+        '<div class="cccmap-pophead">' +
+        (job.month ? '<div class="cccmap-month">' + esc(job.month) + '</div>' : '') +
+        '<div class="cccmap-street">' + esc(job.street) + '</div>' +
+        '<div class="cccmap-city">' + esc(job.city) + '</div>' +
+        '<div class="cccmap-tags"><span class="cccmap-tag">' + esc(job.type) + '</span><span class="cccmap-tag">' + job.photos.length + ' photos</span></div>' +
+        '</div>' +
+        '<div class="cccmap-thumbstrip">' + thumbs + extra + '</div>' +
+        '<button class="cccmap-cta" data-ccmjob="' + job.id + '" data-ccmidx="0">View Full Gallery →</button>' +
+        '</div>';
+    }
+
+    var popup = L.popup({maxWidth:320, minWidth: has?300:225, offset:[0,0], closeButton:false, autoClose:true, closeOnClick:false}).setContent(html);
+    mk.bindPopup(popup);
+    mk.on('mouseover', function(){ if(!isMob) this.openPopup(); });
+    mk.on('mouseout',  function(){ if(!isMob){ var self=this; setTimeout(function(){ var el=document.querySelector('.cccmap-popup'); if(!el||!el.matches(':hover'))self.closePopup(); },260); }});
+    mk.on('click',     function(){ this.openPopup(); });
+  });
+}
+
+// ── GALLERY ───────────────────────────────────────
+window.ccmOpenGallery = function(id, startIdx) {
+  gJob = JOBS.find(function(j){ return j.id===id; });
+  if (!gJob || !gJob.photos.length) return;
+  gIdx = startIdx || 0;
+  document.getElementById('cccmap-gmonth').textContent  = gJob.month || '';
+  document.getElementById('cccmap-gstreet').textContent = gJob.street;
+  document.getElementById('cccmap-gcity').textContent   = gJob.city + ' · ' + gJob.type;
+  renderHero();
+  renderGrid();
+  document.getElementById('cccmap-gallery').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  ccmMap.closePopup();
+};
+window.ccmCloseGallery = function() {
+  document.getElementById('cccmap-gallery').classList.remove('open');
+  document.body.style.overflow = '';
+};
+function renderHero() {
+  document.getElementById('cccmap-gheroimg').src = gJob.photos[gIdx];
+  document.getElementById('cccmap-gheroidx').textContent = (gIdx+1) + ' / ' + gJob.photos.length;
+  document.querySelectorAll('.cccmap-gcell').forEach(function(c,i){ c.classList.toggle('active', i===gIdx); });
+}
+function renderGrid() {
+  document.getElementById('cccmap-ggrid').innerHTML = gJob.photos.map(function(u,i){
+    return '<div class="cccmap-gcell' + (i===gIdx?' active':'') + '" onclick="ccmSetHero(' + i + ')">' +
+      '<img src="' + u + '" loading="lazy" alt="Photo ' + (i+1) + '"></div>';
+  }).join('');
+}
+window.ccmSetHero  = function(i){ gIdx=i; renderHero(); };
+window.ccmHeroNav  = function(d){ gIdx=(gIdx+d+gJob.photos.length)%gJob.photos.length; renderHero(); };
+window.ccmHeroLb   = function(){ ccmOpenLb(gJob.photos[gIdx]); };
+
+// ── LIGHTBOX ──────────────────────────────────────
+function ccmOpenLb(src){ document.getElementById('cccmap-lbimg').src=src; document.getElementById('cccmap-lb').classList.add('open'); }
+window.ccmCloseLb = function(){ document.getElementById('cccmap-lb').classList.remove('open'); };
+
+// ── TOAST ─────────────────────────────────────────
+function ccmToast(msg, ms) {
+  var el = document.getElementById('cccmap-toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(function(){ el.classList.remove('show'); }, ms||2800);
+}
+
+// ── ADDRESS SEARCH ────────────────────────────────
+function bindSearch() {
+  var inp = document.getElementById('cccmap-srch');
+  var ac  = document.getElementById('cccmap-ac');
+  inp.addEventListener('input', function(){
+    clearTimeout(srchTimer);
+    var q = inp.value.trim();
+    if (q.length < 3) { ac.style.display='none'; return; }
+    srchTimer = setTimeout(function(){ fetchAC(q, inp, ac); }, 370);
+  });
+  inp.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); doSearch(inp.value.trim()); } });
+  document.getElementById('cccmap-srchbtn').onclick = function(){ doSearch(inp.value.trim()); };
+  document.addEventListener('click', function(e){ if(!e.target.closest('#cccmap-srchwrap')) ac.style.display='none'; });
+}
+async function fetchAC(q, inp, ac) {
+  try {
+    var r = await fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=5&countrycodes=us',{headers:{'Accept-Language':'en'}});
+    var d = await r.json();
+    if (!d.length){ ac.style.display='none'; return; }
+    ac.innerHTML = d.map(function(x){
+      var p=x.display_name.split(',');
+      return '<div class="cccmap-acr" data-lat="'+x.lat+'" data-lon="'+x.lon+'">' +
+        '<span class="cm-pin">📍</span>' +
+        '<div><div class="cm-main">'+esc(p[0])+'</div><div class="cm-sub">'+esc(p.slice(1,3).join(','))+'</div></div></div>';
+    }).join('');
+    ac.style.display='block';
+    ac.querySelectorAll('.cccmap-acr').forEach(function(row){
+      row.onclick = function(){
+        flyTo(+row.dataset.lat, +row.dataset.lon, row.querySelector('.cm-main').textContent);
+        ac.style.display='none';
+        document.getElementById('cccmap-srch').value = row.querySelector('.cm-main').textContent;
+      };
+    });
+  } catch(e){}
+}
+async function doSearch(q) {
+  if (!q) return;
+  document.getElementById('cccmap-ac').style.display='none';
+  ccmToast('Searching…');
+  try {
+    var r = await fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=1&countrycodes=us');
+    var d = await r.json();
+    if (!d.length){ ccmToast('Address not found. Try a city or ZIP.'); return; }
+    flyTo(+d[0].lat, +d[0].lon, d[0].display_name.split(',')[0]);
+  } catch(e){ ccmToast('Search unavailable.'); }
+}
+function flyTo(lat, lon, name) {
+  if (srchMk) ccmMap.removeLayer(srchMk);
+  ccmMap.flyTo([lat,lon], 15, {duration:1.3});
+  srchMk = L.marker([lat,lon], {icon:L.divIcon({html:'<div class="cccmap-srchDot"></div>',className:'',iconSize:[16,16],iconAnchor:[8,8]})})
+    .addTo(ccmMap).bindPopup('<div style="font-size:.76rem;color:#99a;padding:3px;">'+esc(name)+'</div>',{closeButton:false}).openPopup();
+  ccmToast('📍 ' + name);
+}
+
+// ── GEOLOCATION ───────────────────────────────────
+function bindGeo() {
+  document.getElementById('cccmap-geobtn').onclick = function() {
+    if (!navigator.geolocation){ ccmToast('Geolocation not supported.'); return; }
+    ccmToast('Finding your location…');
+    this.classList.add('active');
+    var btn = this;
+    navigator.geolocation.getCurrentPosition(function(pos){
+      var lat=pos.coords.latitude, lng=pos.coords.longitude;
+      if (userMk) ccmMap.removeLayer(userMk);
+      userMk = L.marker([lat,lng],{icon:L.divIcon({html:'<div class="cccmap-userdot"></div>',className:'',iconSize:[13,13],iconAnchor:[6.5,6.5]})})
+        .addTo(ccmMap).bindPopup('<div style="font-size:.76rem;color:#99a;padding:2px;">Your location</div>',{closeButton:false}).openPopup();
+      ccmMap.flyTo([lat,lng], 13, {duration:1.4});
+      ccmToast('📍 Showing your location');
+    }, function(err){
+      btn.classList.remove('active');
+      ccmToast(err.code===1?'Location access denied.':'Could not get location.');
+    }, {timeout:10000});
+  };
+}
+
+// ── POPUP CLICK DELEGATION ───────────────────────
+// GHL sanitizes onclick from innerHTML — use event delegation instead
+function bindPopupClicks() {
+  document.addEventListener('click', function(e) {
+    // Walk up the DOM to find a clickable popup element
+    var el = e.target;
+    for (var i = 0; i < 5; i++) {
+      if (!el) break;
+      var jobId = el.getAttribute('data-ccmjob');
+      var idx   = el.getAttribute('data-ccmidx');
+      if (jobId !== null && idx !== null) {
+        e.preventDefault();
+        e.stopPropagation();
+        ccmOpenGallery(parseInt(jobId), parseInt(idx));
+        return;
+      }
+      el = el.parentElement;
+    }
+  });
+}
+
+// ── UTIL ──────────────────────────────────────────
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── BOOT ──────────────────────────────────────────
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+
+})(); // end IIFE — keeps all variables out of global scope
+</script>
