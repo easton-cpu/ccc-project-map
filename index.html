@@ -319,9 +319,9 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (function() {
-// ═══════════════════════════════════════════════════════
+// =======================================================
 //  PASTE YOUR GOOGLE APPS SCRIPT URL BELOW
-// ═══════════════════════════════════════════════════════
+// =======================================================
 var DATA_URL = 'https://script.google.com/macros/s/AKfycbxzH-7Dek6_N9WOxaHui7Muy3RNoEs6XhvItgT4KU7d4Kzj4gWpr-Q1w97kQO_OAE4O/exec';
 
 var DEMO_JOBS = [
@@ -342,25 +342,67 @@ var gJob = null, gIdx = 0;
 var srchMk = null, userMk = null;
 var srchTimer = null;
 
-// ── INIT ──────────────────────────────────────────
+// -- INIT ------------------------------------------
 function init() {
   ccmMap = L.map('cccmap-map', {
     center: [47.85, -122.25], zoom: 10,
     zoomControl: true, attributionControl: true
   });
-  // Primary: Google Satellite (works everywhere including GHL iframes)
-  L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-    attribution: 'Imagery © Google',
-    maxZoom: 21,
-    subdomains: ['mt0','mt1','mt2','mt3'],
-  }).addTo(ccmMap);
+  // Try multiple satellite tile providers -- first one that loads wins
+  var tileProviders = [
+    {
+      url: 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+      opts: { attribution: 'Google', maxZoom: 21, subdomains: '0123' }
+    },
+    {
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      opts: { attribution: 'Esri', maxZoom: 20 }
+    },
+    {
+      url: 'https://{s}.aerial.maps.ls.hereapi.com/maptile/2.1/maptile/newest/satellite.day/{z}/{x}/{y}/256/png8?apiKey=YOUR_KEY',
+      opts: { attribution: 'HERE', maxZoom: 20, subdomains: '1234' }
+    },
+    {
+      url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      opts: { attribution: 'OSM', maxZoom: 19, subdomains: 'abc' }
+    }
+  ];
 
-  // Labels overlay
-  L.tileLayer('https://mt1.google.com/vt/lyrs=h&x={x}&y={y}&z={z}', {
-    maxZoom: 21,
-    opacity: 0.8,
-    subdomains: ['mt0','mt1','mt2','mt3'],
-  }).addTo(ccmMap);
+  var tileLayer = null;
+  var labelLayer = null;
+
+  function tryTileProvider(index) {
+    if (index >= tileProviders.length) {
+      console.warn('All tile providers failed');
+      return;
+    }
+    var provider = tileProviders[index];
+    var layer = L.tileLayer(provider.url, provider.opts);
+
+    layer.on('tileerror', function() {
+      if (tileLayer === layer) {
+        ccmMap.removeLayer(layer);
+        if (labelLayer) { ccmMap.removeLayer(labelLayer); labelLayer = null; }
+        tileLayer = null;
+        tryTileProvider(index + 1);
+      }
+    });
+
+    layer.on('tileload', function() {
+      // Tile loaded -- add labels if using Google
+      if (index === 0 && !labelLayer) {
+        labelLayer = L.tileLayer(
+          'https://mt{s}.google.com/vt/lyrs=h&x={x}&y={y}&z={z}',
+          { maxZoom:21, opacity:0.8, subdomains:'0123' }
+        ).addTo(ccmMap);
+      }
+    });
+
+    tileLayer = layer;
+    layer.addTo(ccmMap);
+  }
+
+  tryTileProvider(0);
 
   loadData();
   bindSearch();
@@ -374,7 +416,7 @@ function init() {
   });
 }
 
-// ── DATA LOAD ─────────────────────────────────────
+// -- DATA LOAD -------------------------------------
 async function loadData() {
   if (DATA_URL && DATA_URL !== 'YOUR_GOOGLE_APPS_SCRIPT_URL') {
     try {
@@ -393,7 +435,7 @@ async function loadData() {
         throw new Error('Invalid data format');
       }
     } catch(e) {
-      console.warn('Live feed error:', e.message, '— using demo data');
+      console.warn('Live feed error:', e.message, '-- using demo data');
       JOBS = DEMO_JOBS;
     }
   } else {
@@ -403,7 +445,7 @@ async function loadData() {
   renderMarkers();
 }
 
-// ── COUNTER ───────────────────────────────────────
+// -- COUNTER ---------------------------------------
 function renderCounter() {
   var el = document.getElementById('cccmap-ctrnum');
   var t = JOBS.length, c = 0;
@@ -414,7 +456,7 @@ function renderCounter() {
   }, 55);
 }
 
-// ── PIN SVG ───────────────────────────────────────
+// -- PIN SVG ---------------------------------------
 function mkPin(has) {
   var fill = has ? '#c8a84b' : '#2e3c56';
   var dot  = has ? '#1a2035' : '#3a4a68';
@@ -426,7 +468,7 @@ function mkPin(has) {
     '</svg>';
 }
 
-// ── MARKERS ───────────────────────────────────────
+// -- MARKERS ---------------------------------------
 function renderMarkers() {
   var isMob = window.innerWidth < 768 || navigator.maxTouchPoints > 0;
 
@@ -445,7 +487,7 @@ function renderMarkers() {
         '<div class="cccmap-street">' + esc(job.street) + '</div>' +
         '<div class="cccmap-city">' + esc(job.city) + '</div>' +
         '<div class="cccmap-tags"><span class="cccmap-tag">' + esc(job.type) + '</span></div>' +
-        '</div><div class="cccmap-nophoto">📸 Photos coming soon</div></div>';
+        '</div><div class="cccmap-nophoto">  Photos coming soon</div></div>';
     } else {
       var thumbs = job.photos.slice(0,4).map(function(u,i){
         var last = i===3 && job.photos.length>4;
@@ -463,7 +505,7 @@ function renderMarkers() {
         '<div class="cccmap-tags"><span class="cccmap-tag">' + esc(job.type) + '</span><span class="cccmap-tag">' + job.photos.length + ' photos</span></div>' +
         '</div>' +
         '<div class="cccmap-thumbstrip">' + thumbs + extra + '</div>' +
-        '<button class="cccmap-cta" data-ccmjob="' + job.id + '" data-ccmidx="0">View Full Gallery →</button>' +
+        '<button class="cccmap-cta" data-ccmjob="' + job.id + '" data-ccmidx="0">View Full Gallery -></button>' +
         '</div>';
     }
 
@@ -475,14 +517,14 @@ function renderMarkers() {
   });
 }
 
-// ── GALLERY ───────────────────────────────────────
+// -- GALLERY ---------------------------------------
 window.ccmOpenGallery = function(id, startIdx) {
   gJob = JOBS.find(function(j){ return j.id===id; });
   if (!gJob || !gJob.photos.length) return;
   gIdx = startIdx || 0;
   document.getElementById('cccmap-gmonth').textContent  = gJob.month || '';
   document.getElementById('cccmap-gstreet').textContent = gJob.street;
-  document.getElementById('cccmap-gcity').textContent   = gJob.city + ' · ' + gJob.type;
+  document.getElementById('cccmap-gcity').textContent   = gJob.city + ' . ' + gJob.type;
   renderHero();
   renderGrid();
   document.getElementById('cccmap-gallery').classList.add('open');
@@ -508,18 +550,18 @@ window.ccmSetHero  = function(i){ gIdx=i; renderHero(); };
 window.ccmHeroNav  = function(d){ gIdx=(gIdx+d+gJob.photos.length)%gJob.photos.length; renderHero(); };
 window.ccmHeroLb   = function(){ ccmOpenLb(gJob.photos[gIdx]); };
 
-// ── LIGHTBOX ──────────────────────────────────────
+// -- LIGHTBOX --------------------------------------
 function ccmOpenLb(src){ document.getElementById('cccmap-lbimg').src=src; document.getElementById('cccmap-lb').classList.add('open'); }
 window.ccmCloseLb = function(){ document.getElementById('cccmap-lb').classList.remove('open'); };
 
-// ── TOAST ─────────────────────────────────────────
+// -- TOAST -----------------------------------------
 function ccmToast(msg, ms) {
   var el = document.getElementById('cccmap-toast');
   el.textContent = msg; el.classList.add('show');
   setTimeout(function(){ el.classList.remove('show'); }, ms||2800);
 }
 
-// ── ADDRESS SEARCH ────────────────────────────────
+// -- ADDRESS SEARCH --------------------------------
 function bindSearch() {
   var inp = document.getElementById('cccmap-srch');
   var ac  = document.getElementById('cccmap-ac');
@@ -541,7 +583,7 @@ async function fetchAC(q, inp, ac) {
     ac.innerHTML = d.map(function(x){
       var p=x.display_name.split(',');
       return '<div class="cccmap-acr" data-lat="'+x.lat+'" data-lon="'+x.lon+'">' +
-        '<span class="cm-pin">📍</span>' +
+        '<span class="cm-pin"> </span>' +
         '<div><div class="cm-main">'+esc(p[0])+'</div><div class="cm-sub">'+esc(p.slice(1,3).join(','))+'</div></div></div>';
     }).join('');
     ac.style.display='block';
@@ -557,7 +599,7 @@ async function fetchAC(q, inp, ac) {
 async function doSearch(q) {
   if (!q) return;
   document.getElementById('cccmap-ac').style.display='none';
-  ccmToast('Searching…');
+  ccmToast('Searching...');
   try {
     var r = await fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=1&countrycodes=us');
     var d = await r.json();
@@ -570,14 +612,14 @@ function flyTo(lat, lon, name) {
   ccmMap.flyTo([lat,lon], 15, {duration:1.3});
   srchMk = L.marker([lat,lon], {icon:L.divIcon({html:'<div class="cccmap-srchDot"></div>',className:'',iconSize:[16,16],iconAnchor:[8,8]})})
     .addTo(ccmMap).bindPopup('<div style="font-size:.76rem;color:#99a;padding:3px;">'+esc(name)+'</div>',{closeButton:false}).openPopup();
-  ccmToast('📍 ' + name);
+  ccmToast('  ' + name);
 }
 
-// ── GEOLOCATION ───────────────────────────────────
+// -- GEOLOCATION -----------------------------------
 function bindGeo() {
   document.getElementById('cccmap-geobtn').onclick = function() {
     if (!navigator.geolocation){ ccmToast('Geolocation not supported.'); return; }
-    ccmToast('Finding your location…');
+    ccmToast('Finding your location...');
     this.classList.add('active');
     var btn = this;
     navigator.geolocation.getCurrentPosition(function(pos){
@@ -586,7 +628,7 @@ function bindGeo() {
       userMk = L.marker([lat,lng],{icon:L.divIcon({html:'<div class="cccmap-userdot"></div>',className:'',iconSize:[13,13],iconAnchor:[6.5,6.5]})})
         .addTo(ccmMap).bindPopup('<div style="font-size:.76rem;color:#99a;padding:2px;">Your location</div>',{closeButton:false}).openPopup();
       ccmMap.flyTo([lat,lng], 13, {duration:1.4});
-      ccmToast('📍 Showing your location');
+      ccmToast('  Showing your location');
     }, function(err){
       btn.classList.remove('active');
       ccmToast(err.code===1?'Location access denied.':'Could not get location.');
@@ -594,8 +636,8 @@ function bindGeo() {
   };
 }
 
-// ── POPUP CLICK DELEGATION ───────────────────────
-// GHL sanitizes onclick from innerHTML — use event delegation instead
+// -- POPUP CLICK DELEGATION -----------------------
+// GHL sanitizes onclick from innerHTML -- use event delegation instead
 function bindPopupClicks() {
   document.addEventListener('click', function(e) {
     // Walk up the DOM to find a clickable popup element
@@ -615,15 +657,15 @@ function bindPopupClicks() {
   });
 }
 
-// ── UTIL ──────────────────────────────────────────
+// -- UTIL ------------------------------------------
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// ── BOOT ──────────────────────────────────────────
+// -- BOOT ------------------------------------------
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
   init();
 }
 
-})(); // end IIFE — keeps all variables out of global scope
+})(); // end IIFE -- keeps all variables out of global scope
 </script>
