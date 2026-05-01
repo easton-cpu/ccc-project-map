@@ -541,11 +541,13 @@ window.ccmOpenGallery = function(id, startIdx) {
   renderGrid();
   document.getElementById('cccmap-gallery').classList.add('open');
   document.body.style.overflow = 'hidden';
+  try { window.parent.postMessage({type:'ccc-gallery-open'}, '*'); } catch(e){}
   ccmMap.closePopup();
 };
 window.ccmCloseGallery = function() {
   document.getElementById('cccmap-gallery').classList.remove('open');
   document.body.style.overflow = '';
+  try { window.parent.postMessage({type:'ccc-gallery-close'}, '*'); } catch(e){}
 };
 function renderHero() {
   document.getElementById('cccmap-gheroimg').src = gJob.photos[gIdx];
