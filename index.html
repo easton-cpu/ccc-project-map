@@ -414,6 +414,7 @@ function init() {
   bindSearch();
   bindGeo();
   bindPopupClicks();
+  bindPopupMouseout();
 
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') { ccmCloseLb(); ccmCloseGallery(); }
@@ -524,8 +525,18 @@ function renderMarkers() {
     var popup = L.popup({maxWidth:320, minWidth: has?300:225, offset:[0,0], closeButton:false, autoClose:true, closeOnClick:false}).setContent(html);
     mk.bindPopup(popup);
     mk.on('mouseover', function(){ if(!isMob) this.openPopup(); });
-    mk.on('mouseout',  function(){ if(!isMob){ var self=this; setTimeout(function(){ var el=document.querySelector('.cccmap-popup'); if(!el||!el.matches(':hover'))self.closePopup(); },260); }});
-    mk.on('click',     function(){ this.openPopup(); });
+    mk.on('mouseout', function() {
+      if (!isMob) {
+        var self = this;
+        setTimeout(function() {
+          var popup = document.querySelector('.cccmap-popup');
+          if (!popup || !popup.matches(':hover')) {
+            self.closePopup();
+          }
+        }, 600);
+      }
+    });
+    mk.on('click', function() { this.openPopup(); });
   });
 }
 
@@ -576,6 +587,17 @@ function ccmToast(msg, ms) {
 }
 
 // -- ADDRESS SEARCH --------------------------------
+function bindPopupMouseout() {
+  // Keep popup open while hovering over it
+  // Close when mouse leaves the popup
+  document.addEventListener('mouseleave', function(e) {
+    var el = e.target;
+    if (el && el.classList && el.classList.contains('cccmap-popup')) {
+      if (ccmMap) ccmMap.closePopup();
+    }
+  }, true);
+}
+
 function bindSearch() {
   var inp = document.getElementById('cccmap-srch');
   var ac  = document.getElementById('cccmap-ac');
