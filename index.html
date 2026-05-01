@@ -121,6 +121,46 @@
   min-height:500px;
   background:#111820;
 }
+
+/* Filter bar */
+#cccmap-filters {
+  position:absolute;
+  top:74px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:800;
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  justify-content:center;
+  pointer-events:none;
+}
+.cccmap-filter {
+  pointer-events:all;
+  background:rgba(13,18,25,0.88);
+  border:1px solid #28364e;
+  border-radius:20px;
+  padding:5px 14px;
+  font-family:'Oswald',sans-serif;
+  font-size:0.72rem;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  color:#7a8799;
+  cursor:pointer;
+  transition:all 0.2s;
+  backdrop-filter:blur(8px);
+  white-space:nowrap;
+}
+.cccmap-filter:hover {
+  border-color:#c8a84b;
+  color:#c8a84b;
+}
+.cccmap-filter.active {
+  background:#c8a84b;
+  border-color:#c8a84b;
+  color:#0d1219;
+  font-weight:600;
+}
 .leaflet-container { background:#111820; }
 .leaflet-control-zoom { border:none !important; margin-bottom:90px !important; }
 .leaflet-control-zoom a {
@@ -264,6 +304,15 @@
 
   <!-- MAP -->
   <div id="cccmap-map"></div>
+
+<!-- FILTER BAR -->
+<div id="cccmap-filters">
+  <button class="cccmap-filter active" data-filter="all">All Projects</button>
+  <button class="cccmap-filter" data-filter="roofing">Roofing</button>
+  <button class="cccmap-filter" data-filter="siding">Siding</button>
+  <button class="cccmap-filter" data-filter="gutters">Gutters</button>
+  <button class="cccmap-filter" data-filter="windows">Windows</button>
+</div>
 
   <!-- COUNTER -->
   <div id="cccmap-counter">
@@ -415,6 +464,7 @@ function init() {
   bindGeo();
   bindPopupClicks();
   bindPopupMouseout();
+  bindFilters();
 
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') { ccmCloseLb(); ccmCloseGallery(); }
@@ -450,6 +500,7 @@ async function loadData() {
   }
   renderCounter();
   renderMarkers();
+  buildFilterOptions();
   // Force Leaflet to recalculate map size after everything loads
   setTimeout(function() {
     if (ccmMap) {
@@ -483,6 +534,7 @@ function mkPin(has) {
 
 // -- MARKERS ---------------------------------------
 function renderMarkers() {
+  allMarkers = [];
   var isMob = window.innerWidth < 768 || navigator.maxTouchPoints > 0;
 
   JOBS.forEach(function(job) {
@@ -537,6 +589,7 @@ function renderMarkers() {
       }
     });
     mk.on('click', function() { this.openPopup(); });
+    allMarkers.push({ marker: mk, job: job });
   });
 }
 
@@ -596,6 +649,66 @@ function bindPopupMouseout() {
       if (ccmMap) ccmMap.closePopup();
     }
   }, true);
+}
+
+// -- FILTERS -----------------------------------
+var activeFilter = 'all';
+var allMarkers = [];
+
+function bindFilters() {
+  document.querySelectorAll('.cccmap-filter').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      activeFilter = this.getAttribute('data-filter');
+      document.querySelectorAll('.cccmap-filter').forEach(function(b) {
+        b.classList.remove('active');
+      });
+      this.classList.add('active');
+      applyFilter();
+    });
+  });
+}
+
+function applyFilter() {
+  allMarkers.forEach(function(item) {
+    var type = (item.job.type || '').toLowerCase();
+    var show = activeFilter === 'all' ||
+      (activeFilter === 'roofing'  && type.indexOf('roof') > -1) ||
+      (activeFilter === 'siding'   && type.indexOf('sid') > -1) ||
+      (activeFilter === 'gutters'  && type.indexOf('gut') > -1) ||
+      (activeFilter === 'windows'  && type.indexOf('win') > -1);
+
+    if (show) {
+      if (!ccmMap.hasLayer(item.marker)) item.marker.addTo(ccmMap);
+    } else {
+      if (ccmMap.hasLayer(item.marker)) ccmMap.removeLayer(item.marker);
+    }
+  });
+
+  // Update counter to show filtered count
+  var visible = allMarkers.filter(function(item) {
+    return ccmMap.hasLayer(item.marker);
+  }).length;
+  document.getElementById('cccmap-ctrnum').textContent = visible.toLocaleString();
+}
+
+function buildFilterOptions() {
+  // Dynamically build filter buttons from actual job types in data
+  var types = {};
+  JOBS.forEach(function(job) {
+    var t = (job.type || '').toLowerCase();
+    if (t.indexOf('roof') > -1)  types.roofing  = true;
+    if (t.indexOf('sid')  > -1)  types.siding   = true;
+    if (t.indexOf('gut')  > -1)  types.gutters  = true;
+    if (t.indexOf('win')  > -1)  types.windows  = true;
+  });
+
+  // Show/hide filter buttons based on what types exist
+  document.querySelectorAll('.cccmap-filter[data-filter]').forEach(function(btn) {
+    var f = btn.getAttribute('data-filter');
+    if (f !== 'all' && !types[f]) {
+      btn.style.display = 'none';
+    }
+  });
 }
 
 function bindSearch() {
