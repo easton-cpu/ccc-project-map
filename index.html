@@ -19,10 +19,10 @@
   --cm-white:  #ffffff;
   font-family: 'Source Sans 3', sans-serif;
   color: var(--cm-light);
-  display: flex;
-  flex-direction: column;
+  display: block;
   width: 100%;
-  height: 700px;
+  height: 100vh;
+  min-height: 600px;
   position: relative;
   overflow: hidden;
   background: var(--cm-deep);
@@ -113,7 +113,13 @@
 
 /* MAP */
 #cccmap-map {
-  position:absolute; inset:0; top:64px;
+  position:absolute;
+  top:64px;
+  left:0;
+  right:0;
+  bottom:0;
+  min-height:500px;
+  background:#111820;
 }
 .leaflet-container { background:#111820; }
 .leaflet-control-zoom { border:none !important; margin-bottom:90px !important; }
@@ -443,6 +449,12 @@ async function loadData() {
   }
   renderCounter();
   renderMarkers();
+  // Force Leaflet to recalculate map size after everything loads
+  setTimeout(function() {
+    if (ccmMap) {
+      ccmMap.invalidateSize(true);
+    }
+  }, 500);
 }
 
 // -- COUNTER ---------------------------------------
@@ -661,11 +673,32 @@ function bindPopupClicks() {
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // -- BOOT ------------------------------------------
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
+function bootMap() {
+  // Force the map container to have explicit dimensions before Leaflet init
+  var root = document.getElementById('cccmap-root');
+  var mapEl = document.getElementById('cccmap-map');
+  if (root && mapEl) {
+    var h = window.innerHeight || 600;
+    root.style.height = h + 'px';
+    mapEl.style.height = (h - 64) + 'px';
+  }
   init();
 }
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootMap);
+} else {
+  bootMap();
+}
+
+window.addEventListener('resize', function() {
+  var h = window.innerHeight || 600;
+  var root = document.getElementById('cccmap-root');
+  var mapEl = document.getElementById('cccmap-map');
+  if (root) root.style.height = h + 'px';
+  if (mapEl) mapEl.style.height = (h - 64) + 'px';
+  if (ccmMap) ccmMap.invalidateSize();
+});
 
 })(); // end IIFE -- keeps all variables out of global scope
 </script>
