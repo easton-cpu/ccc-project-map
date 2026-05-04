@@ -581,11 +581,15 @@ function renderMarkers() {
       if (!isMob) {
         var self = this;
         setTimeout(function() {
-          var popup = document.querySelector('.cccmap-popup');
-          if (!popup || !popup.matches(':hover')) {
-            self.closePopup();
+          // Check if mouse is over popup OR any leaflet popup element
+          var popup = document.querySelector('.leaflet-popup');
+          var popupContent = document.querySelector('.cccmap-popup');
+          if ((popup && popup.matches(':hover')) ||
+              (popupContent && popupContent.matches(':hover'))) {
+            return; // mouse is over popup - keep it open
           }
-        }, 600);
+          self.closePopup();
+        }, 1500);
       }
     });
     mk.on('click', function() { this.openPopup(); });
