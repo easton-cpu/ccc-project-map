@@ -595,7 +595,8 @@ function renderMarkers() {
 
 // -- GALLERY ---------------------------------------
 window.ccmOpenGallery = function(id, startIdx) {
-  gJob = JOBS.find(function(j){ return j.id===id; });
+  // Match by string or number id
+  gJob = JOBS.find(function(j){ return String(j.id) === String(id); });
   if (!gJob || !gJob.photos.length) return;
   gIdx = startIdx || 0;
   document.getElementById('cccmap-gmonth').textContent  = gJob.month || '';
@@ -788,17 +789,39 @@ function bindGeo() {
 // -- POPUP CLICK DELEGATION -----------------------
 // GHL sanitizes onclick from innerHTML -- use event delegation instead
 function bindPopupClicks() {
+  // Wire clicks directly on Leaflet popup after it opens
+  // This bypasses Leaflet's click propagation stopping
+  ccmMap.on('popupopen', function(e) {
+    var container = e.popup.getElement();
+    if (!container) return;
+
+    // Find all clickable elements with data-ccmjob
+    var clickables = container.querySelectorAll('[data-ccmjob]');
+    clickables.forEach(function(el) {
+      // Remove old listeners by cloning
+      var fresh = el.cloneNode(true);
+      el.parentNode.replaceChild(fresh, el);
+      fresh.addEventListener('click', function(ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var jobId = this.getAttribute('data-ccmjob');
+        var idx   = parseInt(this.getAttribute('data-ccmidx')) || 0;
+        ccmOpenGallery(jobId, idx);
+      });
+    });
+  });
+
+  // Fallback document listener
   document.addEventListener('click', function(e) {
-    // Walk up the DOM to find a clickable popup element
     var el = e.target;
-    for (var i = 0; i < 5; i++) {
-      if (!el) break;
+    for (var i = 0; i < 6; i++) {
+      if (!el || !el.getAttribute) break;
       var jobId = el.getAttribute('data-ccmjob');
       var idx   = el.getAttribute('data-ccmidx');
       if (jobId !== null && idx !== null) {
         e.preventDefault();
         e.stopPropagation();
-        ccmOpenGallery(parseInt(jobId), parseInt(idx));
+        ccmOpenGallery(jobId, parseInt(idx) || 0);
         return;
       }
       el = el.parentElement;
